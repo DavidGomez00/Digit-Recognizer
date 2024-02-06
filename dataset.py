@@ -2,11 +2,11 @@ from lightning.pytorch.utilities.types import EVAL_DATALOADERS
 import torch
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
-from torchvision.transforms import v2
+import torchvision.transforms as transforms
 import lightning as L
 from sklearn.model_selection import train_test_split
 
-import torchvision
+import numpy as np
 import os
 
 
@@ -21,12 +21,11 @@ class CustomDataset(Dataset):
 
 
     def __getitem__(self, index):
-        # Extract data and label
-        label = self.data.iloc[index]["label"]
-        data = self.data.iloc[index].drop("label")
-        # Transform data into a image
-        image = torch.Tensor(data.values).view(-1, 28)
-        label = torch.Tensor(label)
+        image = self.data.iloc[index, 1:].values.astype(np.float32).reshape((28,28))
+        label = [0.0] * 10
+        label[self.data.iloc[index, 0]] = 1.0
+        label = torch.Tensor(label).to(torch.float32)
+
         # Apply transforms
         if self.transform is not None:
             image = self.transform(image)
@@ -55,18 +54,24 @@ class CustomDataModule(L.LightningDataModule):
         self.split_seed=split_seed
 
 
-    def setup(self):
+    def setup(self, stage):
         # Load the CSV file
         full_data = pd.read_csv(self.csv_path)
+
         # Create train and val transforms
-        train_transform = v2.Compose([
-            v2.RandomRotation(degrees=(-15, 15))
+        train_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomRotation(degrees=(-15, 15)),
         ])
+        valid_transform = transforms.Compose([
+            transforms.ToTensor()
+        ])
+
         # Split the dataset into train and validation sets
         train_data, val_data = train_test_split(full_data, test_size=self.val_size, random_state=self.split_seed)
         # Create datasets
         self.train_dataset = CustomDataset(train_data, transform=train_transform)
-        self.val_dataset = CustomDataset(val_data)
+        self.val_dataset = CustomDataset(val_data, transform=valid_transform)
 
     
     def train_dataloader(self):
@@ -81,18 +86,3 @@ class CustomDataModule(L.LightningDataModule):
                           batch_size=self.batch_size,
                           shuffle=False,
                           num_workers=self.num_workers)
-
-
-def test():
-    # Create a DataSet
-    data = pd.read_csv("data/train.csv")
-    myDataset = CustomDataset(data=data)
-    # Get first item
-    first_image, label = myDataset.__getitem__(0)
-    assert isinstance(first_image, torch.Tensor)
-    print(first_image.shape)
-    
-
-
-if __name__ == "__main__":
-    test()

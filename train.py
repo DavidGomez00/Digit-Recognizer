@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
-from lightning.pytorch.profilers import PyTorchProfiler
 
 import config
 from dataset import CustomDataModule
@@ -25,13 +24,6 @@ def main():
 
     # Logger and profiler
     logger = TensorBoardLogger("tb_logs", "U-Net")
-    ''' To be used when optimizing computational costs
-    profiler = PyTorchProfiler(
-        on_trace_ready=torch.profiler.tensorboard_trace_handler("tb_logs/U-Net"),
-        trace_memory = True,
-        schedule=torch.profiler.schedule(skip_first=10, wait=1, warmup=1, active=20)
-    )
-    '''
     # Model and datamodule
     model = CustomLighningModule(learning_rate=config.LEARNING_RATE)
     datamodule = CustomDataModule(csv_path=config.CSV_PATH,
@@ -39,12 +31,11 @@ def main():
                                   num_workers=config.NUM_WORKERS,
                                   val_size=config.VAL_SIZE,
                                   split_seed=config.SPLIT_SEED)
-    # TODO: Completar el config, configurar el trainer (y los callbacks) y probar
     # Trainer
     trainer = L.Trainer(accelerator=config.ACCELERATOR,
                         devices=config.DEVICES,
                         min_epochs=config.MIN_EPOCHS,
-                        max_epochs=config.NUM_EPOCHS,
+                        max_epochs=config.MAX_EPOCHS,
                         precision=config.PRECISION,
                         logger=logger,
                         callbacks=[
@@ -56,7 +47,7 @@ def main():
                                 save_weights_only=True)],
                         log_every_n_steps=16,                   
                         )
-    trainer.fit(model,datamodule)
+    trainer.fit(model, datamodule)
     ################################################################################################
 
 

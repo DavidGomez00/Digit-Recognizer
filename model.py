@@ -81,19 +81,19 @@ class CustomLighningModule(L.LightningModule):
         loss, scores, y = self._common_step(batch, batch_idx)
         # Log
         self.log_dict({'train_loss': loss}, on_step=False, on_epoch=True, prog_bar=True)
-        self.train_outputs.append({'scores': scores, 'y':y})
+        self.train_outputs.append({'pred': torch.argmax(scores), 'target':torch.argmax(y)})
         return {'loss': loss, 'scores': scores, 'y':y}
     
 
     def on_train_epoch_end(self):
         # Retrieve scores and labels and clear the outputs for the epoch
-        scores = torch.cat([x['scores'] for x in self.train_outputs])
-        y = torch.cat([x['y'] for x in self.train_outputs])
+        pred = torch.Tensor([x['pred'].item() for x in self.train_outputs])
+        target = torch.Tensor([x['target'].item() for x in self.train_outputs])
         self.train_outputs = []
         # Compute metrics for the epoch and log
         self.log_dict({
-            'train_accuracy': self.acc_score(scores, y),
-            'train_f1': self.f1_score(scores, y)
+            'train_accuracy': self.acc_score(pred, target),
+            'train_f1': self.f1_score(pred, target)
         },
         on_step=False,
         on_epoch=True,
@@ -106,22 +106,22 @@ class CustomLighningModule(L.LightningModule):
         loss, scores, y = self._common_step(batch, batch_idx)
         # Log
         self.log_dict({'val_loss': loss}, on_step=False, on_epoch=True, prog_bar=True)
-        self.val_outputs.appen({'scores':scores, 'y':y})
+        self.val_outputs.append({'pred': torch.argmax(scores), 'target':torch.argmax(y)})
         return {'loss':loss, 'scores':scores, 'y':y}
     
 
     def on_validation_epoch_end(self):
         # Retrieve scores and labels and clear the outputs for the epoch
-        scores = torch.cat(x['scores'] for x in self.val_outputs)
-        y = torch.cat(x['y'] for x in self.val_outputs)
+        pred = torch.Tensor([x['pred'].item() for x in self.val_outputs])
+        target = torch.Tensor([x['target'].item() for x in self.val_outputs])
         self.val_outputs = []
         # Compute metrics for the epoch and log
         self.log_dict({
-            'val_accuracy':self.acc_score(scores, y),
-            'val_f1':self.f1_score(scores, y)
+            'val_accuracy':self.acc_score(pred, target),
+            'val_f1':self.f1_score(pred, target)
         },
         on_step=False,
-        on_epoch=False,
+        on_epoch=True,
         prog_bar=True
         )
     
@@ -135,7 +135,7 @@ class CustomLighningModule(L.LightningModule):
 
 
     def configure_optimizers(self):
-        return SGD(parameters=self.model.parameters(), lr=self.learning_rate)
+        return SGD(params=self.model.parameters(), lr=self.learning_rate)
 
 
 def test():
